@@ -1,0 +1,59 @@
+service: zip-files
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  timeout: 30
+  deploymentBucket:
+    name: deployment-bucket
+    serverSideEncryption: AES256
+
+package:
+  individually: true
+  include:
+    - src/*.js
+
+resources:
+  Resources:
+    UploadRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: UploadRole
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Policies:
+          - PolicyName: UploadPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - s3:*
+                  Resource:
+                    - arn:buckets
+                - Effect: Allow
+                  Action:
+                    - sqs:*
+                  Resource:
+                    - arn:sqs
+               
+functions:
+  - Zip-From-Sqs:
+      handler: src/sqs.handler
+      events:
+        - sqs:
+            arn: arn:sqs
+            batchSize: 1
+      role: UploadRole
+
+plugins:
+  - serverless-lift
